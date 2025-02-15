@@ -165,3 +165,5 @@ if __name__ == "__main__":
         print(f"UCS Shortest Path from '{start_word}' to '{target_word}': {ucs_path}")
     else:
         print(f"No UCS path found from '{start_word}' to '{target_word}'.")
+
+
