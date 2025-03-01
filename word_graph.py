@@ -2,6 +2,10 @@ import networkx as nx
 import heapq
 from collections import deque
 from word_loader import load_words_from_pickle
+import time
+
+# Cache for word transformations
+_transformation_cache = {}
 
 def is_valid_transformation(word1, word2):
     """
@@ -15,8 +19,24 @@ def is_valid_transformation(word1, word2):
 def get_valid_transformations(word, word_list):
     """
     Find all words in the word list that are valid transformations of the given word.
+    Uses an optimized approach to avoid checking every word in the list.
     """
-    return {w for w in word_list if is_valid_transformation(word, w)}
+    # Only consider words of the same length for efficiency
+    word_len = len(word)
+    
+    # Use the more efficient neighbor generation method
+    neighbors = set()
+    
+    # Try changing each position to each letter
+    for i in range(word_len):
+        prefix = word[:i]
+        suffix = word[i+1:]
+        for letter in 'abcdefghijklmnopqrstuvwxyz':
+            candidate = prefix + letter + suffix
+            if candidate != word and candidate in word_list:
+                neighbors.add(candidate)
+    
+    return neighbors
 
 def build_graph_optimized(word_list):
     """
@@ -39,34 +59,74 @@ def build_graph_optimized(word_list):
 
     return graph
 
-def bfs_shortest_path(start, target, word_list):
+def get_word_neighbors(word, word_list):
+    """Get valid one-letter transformations with caching"""
+    global _transformation_cache
+    
+    # Cache key is the word and the id of the word_list (since word lists change)
+    cache_key = (word, id(word_list))
+    
+    if cache_key in _transformation_cache:
+        return _transformation_cache[cache_key]
+    
+    # Calculate valid transformations using the optimized method
+    neighbors = get_valid_transformations(word, word_list)
+    
+    # Store in cache
+    _transformation_cache[cache_key] = neighbors
+    
+    return neighbors
+
+# Optimized BFS implementation
+def optimized_bfs(start, target, word_list, max_depth=15, max_iterations=10000, max_time=5.0):
     """
-    Finds the shortest path from start to target using BFS.
-    Returns the path as a list of words.
+    Optimized BFS with depth limit to prevent excessive searching.
+    Added timeout and iteration limit to prevent hanging.
     """
+    import time
+    start_time = time.time()
+    
+    if start == target:
+        return [start]
+        
+    # If words aren't in the list, return immediately
     if start not in word_list or target not in word_list:
-        return None  # Ensure words exist
-
-    # **Optimization: Reduce search space to words of the same length**
-    word_list = {word for word in word_list if len(word) == len(start)}
-
-    queue = deque([(start, [start])])  # (current word, path taken)
-    visited = set()
-
-    while queue:
-        current_word, path = queue.popleft()
-
-        if current_word == target:
-            return path  # Return the shortest path
-
-        visited.add(current_word)
-
-        # Get valid transformations and explore them
-        for neighbor in get_valid_transformations(current_word, word_list):
+        return None
+    
+    visited = {start}
+    queue = deque([(start, [start], 0)])  # (word, path, depth)
+    iterations = 0
+    
+    while queue and iterations < max_iterations:
+        iterations += 1
+        
+        # Check for timeout
+        if time.time() - start_time > max_time:
+            print(f"BFS search timed out after {iterations} iterations")
+            return None
+            
+        current, path, depth = queue.popleft()
+        
+        # Abandon paths that are too long
+        if depth > max_depth:
+            continue
+            
+        # Get neighbors through the cached function
+        for neighbor in get_word_neighbors(current, word_list):
+            if neighbor == target:
+                return path + [neighbor]
+                
             if neighbor not in visited:
-                queue.append((neighbor, path + [neighbor]))
-
+                visited.add(neighbor)
+                queue.append((neighbor, path + [neighbor], depth + 1))
+    
+    if iterations >= max_iterations:
+        print(f"BFS search reached maximum iterations ({max_iterations})")
+        
     return None  # No path found
+
+# Create an alias for backward compatibility
+bfs_shortest_path = optimized_bfs
 
 def heuristic(word, target):
     """
@@ -75,11 +135,15 @@ def heuristic(word, target):
     """
     return sum(1 for a, b in zip(word, target) if a != b)
 
-def a_star_search(start, target, word_list):
+def a_star_search(start, target, word_list, max_iterations=10000, max_time=5.0):
     """
     Finds the shortest path using A* search.
     Uses g(n) = path cost, h(n) = heuristic (letter difference).
+    Added timeout and iteration limit to prevent hanging.
     """
+    import time
+    start_time = time.time()
+    
     if start not in word_list or target not in word_list:
         return None  # Ensure words exist
 
@@ -89,8 +153,16 @@ def a_star_search(start, target, word_list):
     # Priority queue for A* search (min-heap)
     pq = [(heuristic(start, target), 0, start, [start])]  # (f(n), g(n), current_word, path)
     visited = set()
+    iterations = 0
 
-    while pq:
+    while pq and iterations < max_iterations:
+        iterations += 1
+        
+        # Check for timeout
+        if time.time() - start_time > max_time:
+            print(f"A* search timed out after {iterations} iterations")
+            return None
+            
         _, g, current_word, path = heapq.heappop(pq)
 
         if current_word == target:
@@ -103,13 +175,20 @@ def a_star_search(start, target, word_list):
                 f = g + 1 + heuristic(neighbor, target)  # A* formula: f(n) = g(n) + h(n)
                 heapq.heappush(pq, (f, g + 1, neighbor, path + [neighbor]))
 
+    if iterations >= max_iterations:
+        print(f"A* search reached maximum iterations ({max_iterations})")
+    
     return None  # No path found
 
-def ucs_shortest_path(start, target, word_list):
+def ucs_shortest_path(start, target, word_list, max_iterations=10000, max_time=5.0):
     """
     Finds the shortest path from start to target using Uniform Cost Search (UCS).
     Uses g(n) = actual path cost. No heuristic function.
+    Added timeout and iteration limit to prevent hanging.
     """
+    import time
+    start_time = time.time()
+    
     if start not in word_list or target not in word_list:
         return None  # Ensure words exist
 
@@ -119,8 +198,16 @@ def ucs_shortest_path(start, target, word_list):
     # Priority queue for UCS (min-heap)
     pq = [(0, start, [start])]  # (cost, current_word, path)
     visited = set()
+    iterations = 0
 
-    while pq:
+    while pq and iterations < max_iterations:
+        iterations += 1
+        
+        # Check for timeout
+        if time.time() - start_time > max_time:
+            print(f"UCS search timed out after {iterations} iterations")
+            return None
+            
         g, current_word, path = heapq.heappop(pq)
 
         if current_word == target:
@@ -132,6 +219,9 @@ def ucs_shortest_path(start, target, word_list):
             if neighbor not in visited:
                 heapq.heappush(pq, (g + 1, neighbor, path + [neighbor]))
 
+    if iterations >= max_iterations:
+        print(f"UCS search reached maximum iterations ({max_iterations})")
+    
     return None  # No path found
 
 if __name__ == "__main__":
@@ -148,11 +238,11 @@ if __name__ == "__main__":
     start_word = "cat"
     target_word = "dog"
     
-    bfs_path = bfs_shortest_path(start_word, target_word, word_list)
+    bfs_path = optimized_bfs(start_word, target_word, word_list)
     if bfs_path:
-        print(f"BFS Shortest Path from '{start_word}' to '{target_word}': {bfs_path}")
+        print(f"Optimized BFS Shortest Path from '{start_word}' to '{target_word}': {bfs_path}")
     else:
-        print(f"No BFS path found from '{start_word}' to '{target_word}'.")
+        print(f"No Optimized BFS path found from '{start_word}' to '{target_word}'.")
 
     a_star_path = a_star_search(start_word, target_word, word_list)
     if a_star_path:
