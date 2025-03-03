@@ -44,20 +44,52 @@ The game showcases how different algorithms explore the same problem space with 
 
 ## 🚀 Installation
 
+### Prerequisites
+- Python 3.8 or higher
+
+### Installation Steps
 ```bash
 # Clone this repository
 git clone https://github.com/yourusername/wordLadderGame.git
 cd wordLadderGame
 
+# Create a requirements.txt file with the following content:
+# networkx==2.8.8
+# matplotlib==3.6.2
+# customtkinter==5.1.2
+# pillow==9.3.0
+# numpy==1.23.5
+# ttkthemes==3.2.2
+# tk==0.1.0
+
 # Install required packages
 pip install -r requirements.txt
 ```
 
-### Requirements
-- Python 3.8+
-- NetworkX
-- Matplotlib
-- CustomTkinter
+If you don't have a requirements.txt file yet, create one with the following content:
+
+```
+networkx==2.8.8
+matplotlib==3.6.2
+customtkinter==5.1.2
+pillow==9.3.0
+numpy==1.23.5
+ttkthemes==3.2.2
+tk==0.1.0
+```
+
+### Required Libraries
+The game relies on several external libraries:
+
+- **NetworkX**: For graph creation and manipulation
+- **Matplotlib**: For graph visualization and plotting
+- **CustomTkinter**: For the modern UI elements and dark theme
+- **Pillow (PIL)**: For image processing (used by CustomTkinter)
+- **NumPy**: For numerical operations (used by Matplotlib)
+- **ttkthemes**: For additional UI themes
+- **tk**: For core GUI functionality
+
+**Note**: The exact version numbers may vary, but these are the recommended versions that have been tested with the game.
 
 ## 🎮 How to Play
 
