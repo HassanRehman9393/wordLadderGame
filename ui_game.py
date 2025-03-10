@@ -275,9 +275,10 @@ def get_hint(algorithm):
         except Exception as e:
             hide_loading_screen()
             show_popup("Error", f"An error occurred: {str(e)}")
-
+    
     threading.Thread(target=fetch_hint).start()
     game_stats["hints_used"][algorithm] += 1
+
 
 def update_embedded_graph(start, target, path=None, animated=False):
     """Update the graph visualization with animation support"""
@@ -639,6 +640,7 @@ def compare_algorithms():
         def run_with_timeout(algorithm, algo_name):
             start_time = time.time()
             path = None
+            visited = set()
             
             try:
                 if algo_name == "BFS":
@@ -760,13 +762,13 @@ def compare_algorithms():
                 
                 # If takes too long, consider it timed out
                 if time_taken > MAX_TIME:
-                    return {"path": None, "time": time_taken, "timeout": True}
+                    return {"path": None, "time": time_taken, "timeout": True, "visited": visited}
                 else:
-                    return {"path": path, "time": time_taken, "timeout": False}
+                    return {"path": path, "time": time_taken, "timeout": False, "visited": visited}
                     
             except Exception as e:
                 print(f"Error in {algo_name}: {str(e)}")
-                return {"path": None, "time": time.time() - start_time, "timeout": False, "error": str(e)}
+                return {"path": None, "time": time.time() - start_time, "timeout": False, "error": str(e), "visited": visited}
         
         # Test algorithms
         results["BFS"] = run_with_timeout(bfs_shortest_path, "BFS")
@@ -832,10 +834,22 @@ def compare_algorithms():
         summary_table.pack(pady=10, fill="x")
         
         # Add headers
-        headers = ["Algorithm", "Path Length", "Path"]
+        headers = ["Algorithm", "Path Length", "Time (s)", "Nodes Explored", "Path"]
         for i, header in enumerate(headers):
             header_label = ctk.CTkLabel(summary_table, text=header, font=("Arial", 12, "bold"))
             header_label.grid(row=0, column=i, padx=10, pady=5, sticky="w")
+        
+        # Find the best performing algorithm based on time and path length
+        best_algo = None
+        best_score = float('inf')  # Lower is better
+        
+        for algo, data in results.items():
+            if data["path"]:
+                # Score = time * path_length (weighted average of both metrics)
+                score = data["time"] * len(data["path"])
+                if score < best_score:
+                    best_score = score
+                    best_algo = algo
         
         # Add data for each algorithm
         row = 1
@@ -848,7 +862,10 @@ def compare_algorithms():
             else:  # UCS
                 color = DARK_THEME["warning_color"]
                 
-            algo_label = ctk.CTkLabel(summary_table, text=algo, 
+            # Add a star to the best performing algorithm
+            algo_text = f"{algo} ⭐" if algo == best_algo else algo
+            
+            algo_label = ctk.CTkLabel(summary_table, text=algo_text, 
                                    font=("Arial", 12, "bold"),
                                    text_color="white",
                                    fg_color=color,
@@ -867,6 +884,16 @@ def compare_algorithms():
             path_len_label = ctk.CTkLabel(summary_table, text=path_text, font=("Arial", 12))
             path_len_label.grid(row=row, column=1, padx=10, pady=5, sticky="w")
             
+            # Time taken
+            time_text = f"{data['time']:.3f}s"
+            time_label = ctk.CTkLabel(summary_table, text=time_text, font=("Arial", 12))
+            time_label.grid(row=row, column=2, padx=10, pady=5, sticky="w")
+            
+            # Nodes explored
+            nodes_text = str(len(data["visited"]))
+            nodes_label = ctk.CTkLabel(summary_table, text=nodes_text, font=("Arial", 12))
+            nodes_label.grid(row=row, column=3, padx=10, pady=5, sticky="w")
+            
             # Path (shortened if needed)
             if data["path"]:
                 if len(data["path"]) > 5:
@@ -877,9 +904,25 @@ def compare_algorithms():
                 path_display = "No path found"
                 
             path_label = ctk.CTkLabel(summary_table, text=path_display, font=("Arial", 12), wraplength=400)
-            path_label.grid(row=row, column=2, padx=10, pady=5, sticky="w")
+            path_label.grid(row=row, column=4, padx=10, pady=5, sticky="w")
             
             row += 1
+            
+        # Add performance summary
+        if best_algo:
+            best_result = results[best_algo]
+            summary_text = (
+                f"\n🏆 Best Performing Algorithm: {best_algo}\n"
+                f"Time: {best_result['time']:.3f}s | Path Length: {len(best_result['path'])-1} steps | "
+                f"Nodes Explored: {len(best_result['visited'])}\n"
+                f"This algorithm provided the best balance of speed and path efficiency."
+            )
+            
+            summary_label = ctk.CTkLabel(summary_frame, 
+                                     text=summary_text,
+                                     font=("Arial", 12, "bold"),
+                                     text_color="#ffcc00")  # Gold color
+            summary_label.pack(pady=10, padx=10)
             
         # Function to create detailed tab for each algorithm
         def create_algorithm_tab(tab, algo_name):
@@ -1523,15 +1566,13 @@ def create_game_ui():
 
     # Current Word with border
     current_frame = ctk.CTkFrame(word_display, 
-                              border_width=1, 
-                              border_color="#3a6a8a",  # Lighter version of accent color
                               fg_color="#252525",
                               corner_radius=8)
     current_frame.pack(side="left", fill="x", expand=True, padx=5)
     ctk.CTkLabel(current_frame, text="🔤 Current Word:", 
-               font=("Arial", 16)).pack(pady=5)
+                font=("Arial", 16)).pack(pady=5)
     lbl_current = ctk.CTkLabel(current_frame, text="", 
-                             font=("Arial", 20, "bold"))
+                            font=("Arial", 20, "bold"))
     lbl_current.pack(pady=5)
 
     # Target Word with border
@@ -1542,9 +1583,9 @@ def create_game_ui():
                              corner_radius=8)
     target_frame.pack(side="right", fill="x", expand=True, padx=5)
     ctk.CTkLabel(target_frame, text="🎯 Target Word:", 
-               font=("Arial", 16)).pack(pady=5)
+                font=("Arial", 16)).pack(pady=5)
     lbl_target = ctk.CTkLabel(target_frame, text="", 
-                            font=("Arial", 20, "bold"))
+                           font=("Arial", 20, "bold"))
     lbl_target.pack(pady=5)
 
     # Moves Counter with improved styling
