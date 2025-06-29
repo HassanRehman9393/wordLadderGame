@@ -7,7 +7,7 @@
 A modern, interactive educational game that demonstrates classic search algorithms through word transformation puzzles.
 
 <p align="center">
-  <img src="screenshots/game_screenshot.png" alt="Word Ladder Game Screenshot" width="600">
+  <img src="images/Home.png" alt="Word Ladder Game Screenshot" width="600">
 </p>
 
 ## 📖 Overview
@@ -50,7 +50,7 @@ The game showcases how different algorithms explore the same problem space with 
 ### Installation Steps
 ```bash
 # Clone this repository
-git clone https://github.com/yourusername/wordLadderGame.git
+git clone https://github.com/HassanRehman9393/wordLadderGame.git
 cd wordLadderGame
 
 # Create a requirements.txt file with the following content:
@@ -133,7 +133,7 @@ The game implements three classic search algorithms with different approaches:
 ## 🔍 Algorithm Comparison
 
 <p align="center">
-  <img src="screenshots/algorithm_comparison.png" alt="Algorithm Comparison" width="600">
+  <img src="images/AlgorithmsComparision.png" alt="Algorithm Comparison" width="600">
 </p>
 
 The visual comparison shows how:
